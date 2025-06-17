@@ -1,0 +1,25 @@
+# Ignore Python virtual environments
+.venv/
+venv/
+env/
+crepe-env/
+
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# VSCode settings
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Audio output, temporary files
+*.wav
+*.mp3
+*.mid
+*.png
+uploads/
+separated/
