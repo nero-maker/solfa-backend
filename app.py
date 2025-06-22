@@ -10,6 +10,10 @@ CORS(app)  # Allow frontend to connect
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+@app.route('/', methods=['GET'])
+def home():
+    return '🎵 Solfa Converter API is running! 🎶'
+
 @app.route('/convert', methods=['POST'])
 def convert():
     if 'file' not in request.files:
