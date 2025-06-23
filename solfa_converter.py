@@ -19,10 +19,13 @@ def convert_to_solfa(filepath):
 
     logging.basicConfig(level=logging.WARNING, format='[%(levelname)s] %(message)s')
 
+    print("🔧 Starting convert_to_solfa")
+
     AudioSegment.converter = "C:/ffmpeg/ffmpeg-7.1.1-essentials_build/bin/ffmpeg.exe"
     AudioSegment.ffprobe = "C:/ffmpeg/ffmpeg-7.1.1-essentials_build/bin/ffprobe.exe"
 
     def separate_vocals(input_path, output_dir='separated_audio'):
+        print("🔍 Running vocal separation")
         try:
             subprocess.run(
                 ["C:/Users/Hp User/Desktop/py/.venv/Scripts/demucs.exe", input_path],
@@ -31,14 +34,17 @@ def convert_to_solfa(filepath):
             filename = os.path.splitext(os.path.basename(input_path))[0]
             vocals_path = os.path.join("separated", "htdemucs", filename, "vocals.wav")
             if os.path.exists(vocals_path):
+                print("🎤 Vocal separation successful")
                 return vocals_path
             else:
                 raise FileNotFoundError("vocals.wav not found after Demucs separation.")
         except Exception as e:
+            print(f"❌ Vocal separation failed: {e}")
             raise RuntimeError(f"Vocal separation failed: {e}")
 
     try:
         input_path = separate_vocals(filepath)
+        print("🎧 Loading audio with librosa")
 
         y, sr = librosa.load(input_path, sr=16000)
 
@@ -47,7 +53,10 @@ def convert_to_solfa(filepath):
             return scipy.signal.sosfilt(sos, y)
 
         y = bandpass_filter(y, sr)
+        print("🔊 Applied bandpass filter")
+
         intervals = librosa.effects.split(y, top_db=20)
+        print(f"⏱ Detected {len(intervals)} vocal intervals")
 
         def get_solfa_mapping(root):
             scale = [pitch.Pitch(root).transpose(i).name for i in [0, 2, 4, 5, 7, 9, 11]]
@@ -61,6 +70,7 @@ def convert_to_solfa(filepath):
                     yield
 
         midi_notes_all = []
+        print("🎼 Running pitch prediction on all intervals")
         for start, end in intervals:
             segment = y[start:end]
             if len(segment) < 2048:
@@ -73,6 +83,7 @@ def convert_to_solfa(filepath):
                     midi_notes_all.append(int(librosa.hz_to_midi(f)))
 
         if not midi_notes_all:
+            print("⚠️ No pitches detected")
             return []
 
         smoothed_all = scipy.ndimage.median_filter(midi_notes_all, size=5)
@@ -82,6 +93,7 @@ def convert_to_solfa(filepath):
         reference_midi = pitch.Pitch(detected_key.tonic.name).midi
 
         solfa_lines = []
+        print("🧠 Mapping notes to solfa lines")
         for start, end in intervals:
             segment = y[start:end]
             if len(segment) < 2048:
@@ -111,6 +123,7 @@ def convert_to_solfa(filepath):
                 solfa_lines.append(cleaned)
 
         try:
+            print("🎹 Creating sheet music")
             with suppress_output():
                 midi_stream = pretty_midi.PrettyMIDI()
                 instrument = pretty_midi.Instrument(program=0)
@@ -124,18 +137,19 @@ def convert_to_solfa(filepath):
                 midi_stream.write('temp_output.mid')
                 score = converter.parse('temp_output.mid')
                 score.write('lily.png', fp='sheet_music.png')
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"⚠️ Sheet music generation failed: {e}")
 
         formatted_lines = []
         for line in solfa_lines:
             chunks = [' '.join([n.capitalize() for n in line[i:i + 6]]) for i in range(0, len(line), 6)]
             formatted_lines.extend(chunks)
 
+        print("✅ Solfa conversion complete")
         return formatted_lines
 
     finally:
-        # === Clean up temporary files ===
+        print("🧹 Cleaning up temporary files")
         try:
             if os.path.exists(filepath):
                 os.remove(filepath)
@@ -153,5 +167,5 @@ def convert_to_solfa(filepath):
                 os.remove('temp_output.mid')
             if os.path.exists('sheet_music.png'):
                 os.remove('sheet_music.png')
-        except Exception:
-            pass  # Ignore any cleanup errors
+        except Exception as e:
+            print(f"⚠️ Cleanup error: {e}")
